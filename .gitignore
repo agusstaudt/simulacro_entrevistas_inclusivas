@@ -1,0 +1,7 @@
+# Apps Script / credenciales / IDs
+.clasp.json
+appsscript.json       
+*.local.json
+.env
+*.secret
+ids/*.json

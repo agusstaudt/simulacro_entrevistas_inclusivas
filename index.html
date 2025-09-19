@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Formulario de centro de acopio</title>
+  <link rel="icon" type="image/png" href="https://lh3.googleusercontent.com/d/1C-xrGUdBbOkC6LdG7_QA6HHsKkrQr7du?v=2">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* fuente de letra */
+    body {
+      font-family: 'Montserrat', sans-serif;
+    }
+    #modalProgreso {
+      font-family: 'Montserrat', sans-serif;
+    }     
+
+    /* Estilo para campos de opciones */
+    input:focus,
+    select:focus,
+    textarea:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px #059669; /* Tailwind emerald-600 */
+      border-color: #059669;
+    }
+      /* Estilos base para todos los campos */
+    input,
+    select {
+      width: 100%;
+      padding: 0.5rem;
+      border: 1px solid #d1d5db; /* gray-300 */
+      border-radius: 0.375rem;    /* Tailwind rounded */
+      background-color: white;
+      color: #1f2937;             /* gray-800 */
+      font-size: 1rem;
+      line-height: 1.5rem;
+      height: 2.5rem;             /* Igual altura */
+      appearance: none;
+    }
+
+    /* Alineación vertical y estilo de flecha */
+    select {
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%236B7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 0.5rem center;
+      background-size: 1rem;
+      padding-right: 2rem; /* espacio para flecha */
+    }
+
+    /* Focus para inputs y selects */
+    input:focus,
+    select:focus {
+      outline: none;
+      border-color: #34d399;     /* emerald-400 */
+      box-shadow: 0 0 0 2px #34d399;
+    }
+
+    /* barra de progreso emergente de boton enviar */
+    .RadialProgress {
+      --progress: 0%;
+      background: conic-gradient(#16a34a var(--progress), #e5e7eb var(--progress));
+    }
+
+  </style>
+  <script>  
+    function limpiarFormulario() {
+      const formulario = document.querySelector(".z-10"); // contenedor del form
+
+      // 🔹 Quitar estilos de error de TODO (inputs, selects, textareas y contenedores como UL)
+      if (formulario) {
+        formulario
+          .querySelectorAll(".ring-red-500, .border-red-500, .ring-2")
+          .forEach(el => el.classList.remove("ring-2", "ring-red-500", "border-red-500"));
+      }
+
+      // 1) Limpiar inputs, selects y check/radio
+      const inputs = document.querySelectorAll("input, select, textarea");
+      inputs.forEach(input => {
+        if (input.type === "checkbox" || input.type === "radio") {
+          input.checked = false;
+        } else if (input.tagName === "SELECT") {
+          input.selectedIndex = 0;
+        } else {
+          input.value = '';
+        }
+      });
+
+      // 2) Ocultar/Resetear bloques condicionales
+      document.querySelectorAll(".camposOtro").forEach(el => {
+        el.classList.add("hidden");
+        el.style.display = "none";
+      });
+
+      // 3) Ocultar mensajes/avisos
+      const aOcultar = [
+        "erroresFormulario",
+        "cuilWarning","diaWarning","diaWarningbr",
+        "mesWarning","mesWarningbr","anioWarning",
+        "modalProgreso","estadoMensaje"
+      ];
+      aOcultar.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.classList.add("hidden");
+        if (["resultado","erroresFormulario","estadoMensaje"].includes(id)) el.innerText = "";
+      });
+
+      // 4) Reset donut
+      const donut = document.getElementById("progresoDonut");
+      const texto = document.getElementById("progresoTexto");
+      if (donut) donut.style.strokeDashoffset = 282.6;
+      if (texto) texto.innerText = "0%";
+    }
+
+   // --- Helpers genéricos ---
+  function onlyDigits(str) { return (str || "").replace(/\D/g, ""); }
+  function hasExactDigits(str, n) { return onlyDigits(str).length === n; }
+  function isEmailValid(str) {
+    // Regex simple y suficiente para formularios
+    return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test((str || "").trim());
+  }
+  function inRange(num, min, max) {
+    const n = Number(num);
+    return Number.isInteger(n) && n >= min && n <= max;
+  }
+  function show(el, v=true){ if(el){ el.classList.toggle("hidden", !v); } }
+  function setInvalid(input, message, errores) {
+    if (!input) return;
+    input.classList.add("ring-2","ring-red-500","border-red-500");
+    if (message) errores.push(message);
+  }
+  function clearInvalidForAll(formulario){
+    formulario.querySelectorAll("input, select, textarea").forEach(el=>{
+      el.classList.remove("ring-2","ring-red-500","border-red-500");
+    });
+  }
+
+  // Mantener tu verificador de CUIL para formatear en vivo
+  function validarCUIL(input) {
+    input.value = onlyDigits(input.value);
+  }
+  function validarTexto(input) {
+    input.value = input.value.replace(/[^a-zA-ZÀ-ſ\s]/g, '');
+  }
+  function validarNumeros(input) {
+    input.value = input.value.replace(/[^0-9]/g, '');
+  }
+
+  // Actualiza estos verificadores para solo toggle visual (no lógicas)
+  function verificarCUIL(input) {
+    show(document.getElementById("cuilWarning"), !(hasExactDigits(input.value,11)));
+  }
+  function verificarDia(input) {
+    const bad = input.value.length !== 2;
+    show(document.getElementById("diaWarning"), bad);
+    show(document.getElementById("diaWarningbr"), bad);
+  }
+  function verificarMes(input) {
+    const bad = input.value.length !== 2;
+    show(document.getElementById("mesWarning"), bad);
+    show(document.getElementById("mesWarningbr"), bad);
+  }
+  function verificarAnio(input) {
+    show(document.getElementById("anioWarning"), input.value.length !== 4);
+  }
+
+  function validarYEnviar() {
+    const formulario = document.querySelector(".z-10");
+    const inputs = formulario.querySelectorAll("input, select, textarea");
+    const datos = {};
+    const errores = [];
+
+    clearInvalidForAll(formulario);
+
+    // Recolecta visibles + chequea "requeridos vacíos"
+    inputs.forEach(input => {
+      const name = input.name?.replace(/\[\]$/, "");
+      const id = input.id;
+      const valor = (input.value || "").trim();
+      const esVisible = input.offsetParent !== null;
+      const esRequerido = input.hasAttribute("required"); // ✅ definir acá
+
+      if (esVisible && esRequerido && !valor) {
+        setInvalid(input, `El campo "${id || name}" es obligatorio.`, errores);
+      }
+
+      if (esVisible && name) {
+        if (input.type === "checkbox") {
+          if (!datos[name]) datos[name] = [];
+          if (input.checked) datos[name].push(valor);
+        } else if (input.type === "radio") {
+          if (input.checked) datos[name] = valor;
+        } else {
+          datos[name] = valor;
+        }
+      }
+    });
+
+    // -------- Validaciones específicas --------
+
+    // CUIL exactamente 11 dígitos
+    const cuilEl = document.getElementById("cuil");
+    if (!hasExactDigits(cuilEl.value, 11)) {
+      show(document.getElementById("cuilWarning"), true);
+      setInvalid(cuilEl, "El CUIL debe tener exactamente 11 dígitos.", errores);
+    } else {
+      show(document.getElementById("cuilWarning"), false);
+    }
+
+    // Fecha de nacimiento: longitudes y rangos
+    const diaEl = document.getElementById("dia");
+    const mesEl = document.getElementById("mes");
+    const anioEl = document.getElementById("anio");
+
+    const dia = onlyDigits(diaEl.value);
+    const mes = onlyDigits(mesEl.value);
+    const anio = onlyDigits(anioEl.value);
+
+    // Longitudes
+    if (dia.length !== 2) setInvalid(diaEl, "El día debe tener 2 dígitos (01–31).", errores);
+    if (mes.length !== 2) setInvalid(mesEl, "El mes debe tener 2 dígitos (01–12).", errores);
+    if (anio.length !== 4) setInvalid(anioEl, "El año debe tener 4 dígitos.", errores);
+
+    // Rango
+    const currentYear = new Date().getFullYear();
+    if (dia && !inRange(dia, 1, 31)) setInvalid(diaEl, "Día fuera de rango (01–31).", errores);
+    if (mes && !inRange(mes, 1, 12)) setInvalid(mesEl, "Mes fuera de rango (01–12).", errores);
+    if (anio && !inRange(anio, 1900, currentYear)) setInvalid(anioEl, `Año fuera de rango (1900–${currentYear}).`, errores);
+
+    if (dia || mes || anio) datos["fechaNacimiento"] = `${dia}/${mes}/${anio}`;
+
+    // Edad y Teléfono: numéricos (podés agregar reglas de longitud si querés)
+    const edadEl = document.getElementById("edad");
+    if (edadEl && edadEl.value && onlyDigits(edadEl.value) !== edadEl.value) {
+      setInvalid(edadEl, "La edad debe contener solo números.", errores);
+    }
+    const telEl = document.getElementById("telefono");
+    if (telEl && telEl.value && onlyDigits(telEl.value) !== telEl.value) {
+      setInvalid(telEl, "El teléfono debe contener solo números.", errores);
+    }
+
+    // Email
+    const correoEl = document.getElementById("correo");
+    if (!isEmailValid(correoEl.value)) {
+      setInvalid(correoEl, "Ingresá un correo electrónico válido.", errores);
+    }
+
+    // Condicionales: vivePosadas
+    const vivePosadasEl = document.getElementById("vivePosadas");
+    if (vivePosadasEl.value === "si") {
+      const barrioEl = document.getElementById("barrio");
+      if (!barrioEl.value.trim()) setInvalid(barrioEl, "Completá el domicilio (barrio/zona).", errores);
+    } else if (vivePosadasEl.value === "no") {
+      const otraLocEl = document.getElementById("otraLocalidad");
+      if (!otraLocEl.value.trim()) setInvalid(otraLocEl, "Indicá la localidad donde vivís.", errores);
+    }
+
+    // Experiencia previa + roles trabajados (grupo)
+    const expEl = document.getElementById("experienciaPrevia");
+    if (expEl.value === "si") {
+      const marcadosTrab = Array.from(document.querySelectorAll('#rolTrabajado input[type="checkbox"]:checked'));
+      if (marcadosTrab.length === 0) {
+        setInvalid(document.getElementById("rolTrabajado"), "Seleccioná al menos un rol trabajado.", errores);
+      }
+      const otroTrabChk = document.querySelector('#rolTrabajado input[type="checkbox"][value="Otro"]');
+      const otroTrabTxt = document.getElementById("otroTextoExperiencia");
+      if (otroTrabChk && otroTrabChk.checked && !otroTrabTxt.value.trim()) {
+        setInvalid(otroTrabTxt, "Indicá el rol trabajado en 'Otro'.", errores);
+      }
+    }
+
+    // Roles deseados (grupo)
+    const marcadosDeseado = Array.from(document.querySelectorAll('#rolDeseado input[type="checkbox"]:checked'));
+    if (marcadosDeseado.length === 0) {
+      setInvalid(document.getElementById("rolDeseado"), "Seleccioná al menos un rol deseado.", errores);
+    }
+    const otroDesChk = document.querySelector('#rolDeseado input[type="checkbox"][value="Otro"]');
+    const otroDesTxt = document.getElementById("otroTextoDeseados");
+    if (otroDesChk && otroDesChk.checked && !otroDesTxt.value.trim()) {
+      setInvalid(otroDesTxt, "Indicá el rol deseado en 'Otro'.", errores);
+    }
+
+    // ------- Mostrar errores o enviar -------
+    const erroresEl = document.getElementById("erroresFormulario");
+    if (errores.length > 0) {
+      erroresEl.innerHTML = errores.map(e=>`• ${e}`).join("<br>");
+      erroresEl.classList.remove("hidden");
+      // Llevar al primer error
+      const primero = formulario.querySelector(".ring-red-500");
+      if (primero) primero.scrollIntoView({behavior:"smooth", block:"center"});
+      return;
+    }
+
+    erroresEl.classList.add("hidden");
+    mostrarModal();
+    setProgreso(30, "Enviando datos...", "Procesando datos…");
+
+    // Enviar
+    google.script.run
+      .withSuccessHandler((res) => {
+        if (res && res.ok) {
+          // 1) Forzamos un frame para que el DOM pinte 30% -> 100%
+          requestAnimationFrame(() => {
+            setProgreso(100, "✅ Datos enviados correctamente.", "¡Listo!");
+            // 2) Mostramos el 100% unos instantes y cerramos
+            setTimeout(() => { 
+              limpiarFormulario(); 
+              cerrarModal(); 
+            }, 1200);
+          });
+        } else {
+          setProgreso(100, "⚠️ Se guardó localmente, pero no pudimos confirmar el externo.", "Atención");
+          setTimeout(() => { cerrarModal(); }, 1500);
+        }
+      })
+      .withFailureHandler((err) => {
+        console.error("Server failure:", err);
+        setProgreso(100, "❌ Hubo un error al guardar.", "Ocurrió un error");
+        const erroresSrv = document.getElementById("erroresFormulario");
+        erroresSrv.innerHTML = (err && err.message) ? err.message : "No se pudo guardar en el servidor.";
+        erroresSrv.classList.remove("hidden");
+        setTimeout(() => { cerrarModal(); }, 2000);
+      })
+      .guardarEnDatosCursos_v3(datos);
+  }
+  // barra de progreso boton enviar
+    function setProgreso(valor, texto = null, titulo = null) {
+      const percent = `${valor}%`;
+      const offset = 282.6 - (valor / 100) * 282.6;
+
+      const circle = document.getElementById("progresoDonut");
+      if (circle) circle.style.strokeDashoffset = offset;
+
+      const txt = document.getElementById("progresoTexto");
+      if (txt) txt.textContent = percent;
+
+      const msg = document.getElementById("estadoMensaje");
+      if (msg && texto != null) {
+        msg.classList.remove("hidden");
+        msg.textContent = texto;
+      }
+
+      const ttl = document.getElementById("tituloProgreso");
+      if (ttl && titulo != null) {
+        ttl.textContent = titulo;
+      }
+    }
+
+  function mostrarModal() {
+    document.getElementById('modalProgreso').classList.remove('hidden');
+    setProgreso(10, "Iniciando envío...");
+  }
+
+  function cerrarModal() {
+    document.getElementById('modalProgreso').classList.add('hidden');
+  }
+  function ocultarProgreso() {
+    document.getElementById("modalProgreso").classList.add("hidden");
+  }
+
+  // varificacion para CUIL y otros campos
+  // Validaciones y eventos
+
+  function validarCUIL(input) {
+    input.value = input.value.replace(/\D/g, '');
+  }
+
+  function validarTexto(input) {
+    input.value = input.value.replace(/[^a-zA-ZÀ-ſ\s]/g, '');
+  }
+
+  function verificarCUIL(input) {
+    document.getElementById("cuilWarning").classList.toggle("hidden", input.value.length === 11);
+  }
+  
+  function verificarDia(input) {
+    const visible = input.value.length !== 2;
+    document.getElementById("diaWarning").classList.toggle("hidden", !visible);
+    document.getElementById("diaWarningbr").classList.toggle("hidden", !visible);
+  }
+
+  function verificarMes(input) {
+    const visible = input.value.length !== 2;
+    document.getElementById("mesWarning").classList.toggle("hidden", !visible);
+    document.getElementById("mesWarningbr").classList.toggle("hidden", !visible);
+  }
+
+  function verificarAnio(input) {
+    document.getElementById("anioWarning").classList.toggle("hidden", input.value.length === 4);
+  }
+
+  function validarNumeros(input) {
+    input.value = input.value.replace(/[^0-9]/g, '');
+  }
+
+  // Funcion para desplegables condicional
+    document.addEventListener("DOMContentLoaded", function () {
+      // seccion condicional si vive en Posadas
+      const selectVivePosadas = document.getElementById("vivePosadas");
+      const preguntaBarrio = document.getElementById("preguntaBarrio");
+      const preguntaLocalidad = document.getElementById("preguntaLocalidad");
+
+      selectVivePosadas.addEventListener("change", function () {
+        const seleccion = selectVivePosadas.value;
+
+        if (seleccion === "si") {
+          preguntaBarrio.style.display = "block";
+          preguntaLocalidad.style.display = "none";
+        } else if (seleccion === "no") {
+          preguntaBarrio.style.display = "none";
+          preguntaLocalidad.style.display = "block";
+        } else {
+          preguntaBarrio.style.display = "none";
+          preguntaLocalidad.style.display = "none";
+        }
+      });
+
+      // Seccion antecedentes laborales y roles deseados
+      const selectExperiencia = document.getElementById("experienciaPrevia");
+      const divExperiencia = document.getElementById("detallarExperienciaPrevia");
+      const checkboxesContainerExperiencia = document.getElementById("rolTrabajado");  
+      const checkboxesContainerDeseado = document.getElementById("rolDeseado"); 
+      const campoOtroExperiencia = document.getElementById("campoOtroExperiencia");
+      const campoOtroDeseado = document.getElementById("campoOtroDeseado");
+
+      // Mostrar/ocultar bloque según respuesta sobre experiencia
+      selectExperiencia.addEventListener("change", function () {
+        if (this.value === "si") {
+          divExperiencia.style.display = "block";
+        } else {
+          divExperiencia.style.display = "none";
+          campoOtroExperiencia.style.display = "none";  
+        }
+      });
+
+      // Delegación de evento: cuando se hace clic en los checkboxes de rol trabajado
+      checkboxesContainerExperiencia.addEventListener("change", function (event) {
+        if (event.target.type === "checkbox") {
+          if (event.target.value.toLowerCase() === "otro" && event.target.checked) {
+            campoOtroExperiencia.style.display = "block";
+          } else if (event.target.value.toLowerCase() === "otro" && !event.target.checked) {
+            campoOtroExperiencia.style.display = "none";
+          }
+        }
+      });
+      // Delegación de evento: cuando se hace clic en los checkboxes de rol deseado
+      checkboxesContainerDeseado.addEventListener("change", function (event) {
+        if (event.target.type === "checkbox") {
+          if (event.target.value.toLowerCase() === "otro" && event.target.checked) {
+            campoOtroDeseado.style.display = "block";
+          } else if (event.target.value.toLowerCase() === "otro" && !event.target.checked) {
+            campoOtroDeseado.style.display = "none";
+          }
+        }
+      });
+    });
+
+  </script>
+</head>
+<body class="bg-gray-100 text-base sm:text-lg flex flex-col min-h-screen">
+  
+  <header class="bg-white text-black w-full py-2 px-4 shadow flex items-center">
+    <!-- Div izquierdo vacío que toma espacio igual que el derecho -->
+    <div class="flex-1"></div>
+
+    <!-- Logo centrado -->
+    <div class="flex justify-center flex-1">
+      <img 
+        src="https://lh3.googleusercontent.com/d/1EhOTj-C7JieE106dDyDiCv8MlJpeGGWj"
+        class="max-h-40 sm:max-h-32 md:max-h-28 w-auto object-contain">
+    </div>
+
+    <!-- Logo a la derecha -->
+    <div class="flex justify-end flex-1">
+      <img 
+        src="https://lh3.googleusercontent.com/d/15FokC3-mIDYBldQI0cUNoO8kU2tEOEH1"
+        class="max-h-4 sm:max-h-10 md:max-h-12 w-auto object-contain">
+    </div>
+  </header>
+
+
+  <div class="relative flex flex-1 items-center justify-center py-4 sm:py-6">
+    <!-- Fondo con opacidad -->
+    <div class="absolute inset-0 bg-[url(https://lh3.googleusercontent.com/d/186-gUIHNmO1KKIGKDNIXJuHfMvny8JRG)] bg-cover bg-center brightness-90"></div>
+
+    <!-- Contenido del formulario -->
+    <div class="relative z-10 w-full max-w-full sm:max-w-[90%] md:max-w-[80%] lg:max-w-[70%] mx-auto rounded-2xl overflow-hidden shadow-lg px-4 sm:px-6 lg:px-8">
+      <!-- Todo el formulario aquí -->
+      <div class="bg-white p-4 sm:p-6 md:p-8 space-y-3">
+        <h2 class="text-xl font-bold text-green-700 mb-4">Formulario de inscripción - Simulacro de entrevistas</h2>
+
+      <!-- Datos personales -->
+        <label for="cuil" class="block font-medium">CUIL:</label>
+        <input type="text" id="cuil" name="cuil" maxlength="11" oninput="validarCUIL(this)" onblur="verificarCUIL(this)" 
+              class="w-full p-2 border rounded mb-2" placeholder="Ingrese el CUIL sin puntos ni guiones" >
+        <span id="cuilWarning" class="text-red-500 text-sm hidden">El CUIL debe tener exactamente 11 dígitos.</span>
+
+        <label for="nombre" class="block font-medium">Nombre:</label>
+        <input type="text" id="nombre" name="nombre" class="w-full p-2 border rounded mb-2" oninput="validarTexto(this)" placeholder="Nombre/s de pila" >
+        
+        <label for="apellido" class="block font-medium">Apellido:</label>
+        <input type="text" id="apellido" name="apellido" class="w-full p-2 border rounded mb-2" oninput="validarTexto(this)" placeholder="Apellido" >
+
+        <h3 class="block font-medium">Fecha de nacimiento:</h3>
+        <div class="flex space-x-2">
+          <div class="w-14">
+            <label for="dia" class="block font-medium text-sm">Día:</label>
+            <input type="text" id="dia" name="dia" maxlength="2" class="w-full p-2 border rounded" size="2" placeholder="DD" oninput="validarCUIL(this)" onblur="verificarDia(this)" >
+          </div>
+          <div class="w-14 flex-none">
+            <label for="mes" class="block font-medium text-sm">Mes:</label>
+            <input type="text" id="mes" name="mes" maxlength="2" class="w-full p-2 border rounded" size="2" placeholder="MM" oninput="validarCUIL(this)" onblur="verificarMes(this)" >
+          </div>
+          <div>
+            <label for="anio" class="block font-medium text-sm">Año:</label>
+            <input type="text" id="anio" name="anio" maxlength="4" class="w-full p-2 border rounded" size="4" placeholder="AAAA" oninput="validarCUIL(this)" onblur="verificarAnio(this)" >
+          </div>
+        </div>
+        <span id="diaWarning" class="text-red-500 text-sm hidden">El día se debe componer de dos dígitos.</span><br id="diaWarningbr" class="hidden"/>
+        <span id="mesWarning" class="text-red-500 text-sm hidden">El mes se debe componer de dos dígitos.</span><br id="mesWarningbr" class="hidden"/>
+        <span id="anioWarning" class="text-red-500 text-sm hidden">El año se debe componer de 4 dígitos.</span>
+        
+        <label for="edad" class="block font-medium">Edad:</label>
+        <input type="text" id="edad" name="edad" maxlength="2" class="w-full p-2 border rounded mb-2" placeholder="Sólo números" oninput="validarNumeros(this)" >
+      <!-- Contacto -->
+        <label for="telefono" class="block font-medium">Teléfono de contacto:</label>
+        <input type="text" id="telefono" name="telefono" class="w-full p-2 border rounded mb-2" placeholder="Sin 0 ni 15" oninput="validarNumeros(this)" >
+
+        <label for="correo" class="block font-medium">Correo electrónico:</label>
+        <input type="email" id="correo" name="correo" class="w-full p-2 border rounded mb-2" placeholder="correo@ejemplo.com" 
+        >
+
+      <!-- Datos de localizacion -->
+        <label for="vivePosadas" class="block font-medium">¿Vivís en la ciudad de Posadas?</label>
+        <select id="vivePosadas" name="vivePosadas" class="w-full p-2 border border-gray-300 rounded mb-2 bg-white text-gray-800" >
+          <option value="">Elegir una opción</option>
+          <option value="si">Sí</option>
+          <option value="no">No</option>
+        </select>
+
+      <!-- Pregunta condicional que aparece solo si elige "Sí" -->
+        <div id="preguntaBarrio" class="camposOtro" style="display: none;">
+          <label for="barrio">Domicilio (barrio/zona)</label>
+          <input type="text" id="barrio" name="barrio" class="w-full p-2 border border-gray-300 rounded" >
+        </div>
+
+      <!-- Pregunta condicional que aparece solo si elige "No" -->
+        <div id="preguntaLocalidad" class="camposOtro" style="display: none;">
+          <label for="otraLocalidad">¿En qué localidad vivís?</label>
+          <input type="text" id="otraLocalidad" name="otraLocalidad" class="w-full p-2 border border-gray-300 rounded" />
+        </div>
+
+      <!-- Experiencia laboral previa -->
+        <label for="experienciaPrevia" class="block font-medium">¿Tenés experiencia laboral previa?</label>
+        <select id="experienciaPrevia" name="experienciaPrevia" class="w-full p-2 border border-gray-300 rounded mb-2 bg-white text-gray-800" >
+          <option value="">Elegir una opción</option>
+          <option value="si">Sí</option>
+          <option value="no">No</option>
+        </select>
+
+        <div id="detallarExperienciaPrevia" class="camposOtro" style="display: none;">
+          <h3 class="mb-4 font-semibold text-gray-900">¿En qué roles (tareas) trabajaste?</h3>
+          <ul id="rolTrabajado" class="max-w-xl text-sm font-medium text-gray-900 bg-white border border-gray-300 rounded-lg">
+            <?!= checkboxesRolTrabajado ?>
+          </ul>
+          <div id="campoOtroExperiencia" class="camposOtro hidden">
+            <label for="otroTextoExperiencia">¿En qué otros roles (tareas) trabajaste?:</label>
+            <input type="text" id="otroTextoExperiencia" name="otroTextoExperiencia" class="w-full p-2 border border-gray-300 rounded" />
+          </div>
+        </div>
+
+      <!-- Lista de roles deseados -->
+        <h3 class="mb-4 font-semibold text-gray-900">¿En qué roles (tareas) te gustaría trabajar?</h3>
+        <ul id="rolDeseado" class="max-w-xl text-sm font-medium text-gray-900 bg-white border border-gray-300 rounded-lg">
+          <?!= checkboxesRolDeseado ?>
+        </ul>
+
+        <div id="campoOtroDeseado" class="camposOtro hidden">
+          <label for="otroTextoDeseados">¿En qué otro rol (tareas) te gustaría trabajar?:</label>
+          <input type="text" id="otroTextoDeseados" name="otroTextoDeseados" class="w-full p-2 border border-gray-300 rounded" />
+        </div>
+
+        <!-- Botones -->
+        <div class="flex justify-start gap-4 mt-4">
+          <button onclick="validarYEnviar()" class="bg-white text-black font-bold px-4 py-2 rounded hover:bg-green-100">Enviar</button>
+          <button onclick="limpiarFormulario()" class="bg-gray-300 text-black font-bold px-4 py-2 rounded hover:bg-green-200">Limpiar</button>
+          
+        </div>
+
+        <!-- Modal con progreso para el boton enviar (ventana emergente) -->
+        <div id="modalProgreso" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50">
+          <div class="bg-white rounded-lg p-6 shadow-xl text-center w-[90%] max-w-md">
+            <h2 id="tituloProgreso" class="text-lg font-semibold text-gray-800 mb-4">Procesando datos...</h2>
+
+            <!-- Donut SVG -->
+            <div class="relative w-[96px] h-[96px] sm:w-[120px] sm:h-[120px] mx-auto">
+              <svg class="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                <!-- Fondo gris -->
+                <circle cx="50" cy="50" r="45" stroke="#e5e7eb" stroke-width="10" fill="none" />
+                <!-- Círculo de progreso -->
+                <circle id="progresoDonut" cx="50" cy="50" r="45" stroke="#16a34a" stroke-width="10" fill="none"
+                  stroke-linecap="round"
+                  stroke-dasharray="282.6"
+                  stroke-dashoffset="282.6"
+                />
+              </svg>
+              <!-- Porcentaje en el centro -->
+              <div id="progresoTexto" class="absolute inset-0 flex items-center justify-center text-green-600 font-bold text-xl">
+                0%
+              </div>
+            </div>
+
+            <p id="estadoMensaje" class="mt-4 text-gray-600">Verificando duplicados...</p>
+          </div>
+        </div>
+      </div>
+        <!-- Errores -->
+        <p id="erroresFormulario" class="bg-red-100 text-red-800 text-sm font-semibold p-3 rounded hidden mt-4 shadow">
+          <!-- Mensaje de error se inyecta aquí -->
+        </p>
+      </div>
+    </div>
+  </div>
+  <footer class="bg-white h-20 flex items-center justify-center shadow-inner">
+    <img 
+      src="https://lh3.googleusercontent.com/d/13bYiNUPlw2Oe65tZhbB_iGAa826qb3wX" 
+      alt="Footer Logo" 
+      class="max-h-32 object-contain"
+    >
+  </footer>
+</body>
+</html>
