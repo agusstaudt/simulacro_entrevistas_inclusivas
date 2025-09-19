@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Formulario de verificación de registro</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    function verificarPersona() {
+      let cuil = document.getElementById("cuil").value.trim();
+      let nombre = document.getElementById("nombre").value.trim();
+      let apellido = document.getElementById("apellido").value.trim();
+      let dia = document.getElementById("dia").value.trim();
+      let mes = document.getElementById("mes").value.trim();
+      let anio = document.getElementById("anio").value.trim();
+
+      if (!cuil || !nombre || !apellido || !dia || !mes || !anio) {
+        alert("Por favor, complete todos los campos.");
+        return;
+      }
+
+      // Verificar si los campos tienen el formato correcto
+      if (cuil.length !== 11 || dia.length !== 2 || mes.length !== 2 || anio.length !== 4) {
+        alert("Algunos campos tienen un formato incorrecto. Revise las advertencias en rojo.");
+        return;
+      }
+      
+      let mensajeProgreso = document.getElementById("mensajeProgreso");
+      mensajeProgreso.innerText = `Buscando CUIL ${cuil}...`;
+      document.getElementById("progreso").classList.remove("hidden");
+      document.getElementById("mensajeProgreso").classList.remove("hidden");
+      document.getElementById("barraProgreso").style.width = "0%";
+
+      google.script.run
+        .withSuccessHandler(function(response) {
+          document.getElementById("barraProgreso").style.width = "100%";
+          document.getElementById("resultado").innerText = response;
+          // Cambiar el color del texto dependiendo del valor de response
+          if (response === "La persona se encuentra registrada") {
+            document.getElementById("resultado").style.color = "green"; // Color verde
+          } else {
+            document.getElementById("resultado").style.color = "red"; // Color rojo
+          }
+          // Ocultar la barra de progreso y el mensaje una vez que se obtenga la respuesta
+          document.getElementById("mensajeProgreso").classList.add("hidden");
+          document.getElementById("progreso").classList.add("hidden");
+        })
+        .withFailureHandler(function(error) {
+          document.getElementById("mensajeProgreso").innerText = "Error durante la búsqueda.";
+        })
+        .buscarPersona(cuil, nombre, apellido, dia, mes, anio);
+
+      let progress = 0;
+      let interval = setInterval(function() {
+        progress += 10;
+        document.getElementById("barraProgreso").style.width = progress + "%";
+        if (progress >= 100) {
+          clearInterval(interval);
+        }
+      }, 500);
+    }
+
+    function limpiarFormulario() {
+      document.getElementById("cuil").value = '';
+      document.getElementById("nombre").value = '';
+      document.getElementById("apellido").value = '';
+      document.getElementById("dia").value = '';
+      document.getElementById("mes").value = '';
+      document.getElementById("anio").value = '';
+
+      document.getElementById("progreso").classList.add("hidden");
+      document.getElementById("mensajeProgreso").classList.add("hidden");
+      document.getElementById("resultado").innerText = '';
+      document.getElementById("cuilWarning").classList.add("hidden");
+      document.getElementById("diaWarning").classList.add("hidden");
+      document.getElementById("mesWarning").classList.add("hidden");
+      document.getElementById("anioWarning").classList.add("hidden");
+      document.getElementById("diaWarningbr").classList.add("hidden");
+      document.getElementById("mesWarningbr").classList.add("hidden");
+    }
+
+    function validarCUIL(input) {
+      input.value = input.value.replace(/\D/g, '');
+    }
+
+    function verificarCUIL(input) {
+      const warning = document.getElementById("cuilWarning");
+      input.value.length !== 11 ? warning.classList.remove("hidden") : warning.classList.add("hidden");
+    }
+
+    function validarTexto(input) {
+      input.value = input.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '');
+    }
+
+    function verificarDia(input) {
+      const warning = document.getElementById("diaWarning");
+      const warningbr = document.getElementById("diaWarningbr");
+      if (input.value.length !== 2) {
+        warning.classList.remove("hidden");
+        warningbr.classList.remove("hidden");  // Mostrar el espacio
+      } else {
+        warning.classList.add("hidden");
+        warningbr.classList.add("hidden");  // Ocultar el espacio
+      }
+    }
+
+    function verificarMes(input) {
+      const warning = document.getElementById("mesWarning");
+      const warningbr = document.getElementById("mesWarningbr");
+      if (input.value.length !== 2) {
+        warning.classList.remove("hidden");
+        warningbr.classList.remove("hidden");  // Mostrar el espacio
+      } else {
+        warning.classList.add("hidden");
+        warningbr.classList.add("hidden");  // Ocultar el espacio
+      }
+    }
+
+    function verificarAnio(input) {
+      const warning = document.getElementById("anioWarning");
+      input.value.length !== 4 ? warning.classList.remove("hidden") : warning.classList.add("hidden");
+    }
+
+  </script>
+</head>
+<body class="bg-gray-100 flex flex-col min-h-screen">
+  <header class="bg-white text-black w-full py-1 text-center text-2xl font-bold flex justify-left items-center">
+    <img src="https://lh3.googleusercontent.com/d/13bYiNUPlw2Oe65tZhbB_iGAa826qb3wX" class="ml-4 w-[600px]">
+  </header>
+  <div class="relative flex-grow flex items-center justify-center">
+    <!-- Fondo con opacidad -->
+    <div class="absolute inset-0 bg-[url(https://lh3.googleusercontent.com/d/186-gUIHNmO1KKIGKDNIXJuHfMvny8JRG)] bg-cover bg-center brightness-90"></div>
+
+    <!-- Contenido (Formulario) -->
+    <div class="relative z-10 bg-white p-6 rounded-lg shadow-lg w-96">
+      <h2 class="text-xl font-bold text-center mb-4">Formulario de verificación de registro</h2>
+
+      <label for="cuil" class="block font-medium">CUIL:</label>
+      <input type="text" id="cuil" maxlength="11" oninput="validarCUIL(this)" onblur="verificarCUIL(this)" 
+            class="w-full p-2 border rounded mb-2" placeholder="Ingrese el CUIL sin puntos ni guiones">
+      <span id="cuilWarning" class="text-red-500 text-sm hidden">El CUIL debe tener exactamente 11 dígitos.</span>
+
+      <label for="nombre" class="block font-medium">Nombre:</label>
+      <input type="text" id="nombre" class="w-full p-2 border rounded mb-2" oninput="validarTexto(this)" placeholder="Nombre/s de pila">
+      
+      <label for="apellido" class="block font-medium">Apellido:</label>
+      <input type="text" id="apellido" class="w-full p-2 border rounded mb-2" oninput="validarTexto(this)" placeholder="Apellido">
+
+      <div class="flex space-x-2">
+        <div class="w-10">
+          <label for="dia" class="block font-medium">Día:</label>
+          <input type="text" id="dia" class="w-full p-2 border rounded" size="2" placeholder="DD" oninput="validarCUIL(this)" onblur="verificarDia(this)">
+        </div>
+        <div class="w-12 flex-none">
+          <label for="mes" class="block font-medium">Mes:</label>
+          <input type="text" id="mes" class="w-full p-2 border rounded" size="2" placeholder="MM" oninput="validarCUIL(this)" onblur="verificarMes(this)">
+        </div>
+        <div>
+          <label for="anio" class="block font-medium">Año:</label>
+          <input type="text" id="anio" class="w-full p-2 border rounded" size="4" placeholder="AAAA" oninput="validarCUIL(this)" onblur="verificarAnio(this)">
+        </div>
+      </div>
+      
+      <span id="diaWarning" class="text-red-500 text-sm hidden">El día se debe componer de dos dígitos.</span><br id="diaWarningbr" class="hidden"/>
+      <span id="mesWarning" class="text-red-500 text-sm hidden">El mes se debe componer de dos dígitos.</span><br id="mesWarningbr" class="hidden"/>
+      <span id="anioWarning" class="text-red-500 text-sm hidden">El año se debe componer de 4 dígitos.</span>
+      
+      <div class="flex justify-between mt-4">
+        <button onclick="verificarPersona()" class="bg-green-900 hover:bg-green-950 text-white px-4 py-2 rounded">Verificar</button>
+        <button onclick="limpiarFormulario()" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">Limpiar</button>
+      </div>
+
+      <div id="progreso" class="hidden mt-4">
+        <div class="w-full bg-gray-300 rounded-full h-2">
+          <div id="barraProgreso" class="h-2 bg-green-900 rounded-full" style="width: 0%;"></div>
+        </div>
+      </div>
+      <p id="mensajeProgreso" class="text-gray-700 mt-2 hidden">Buscando...</p>
+      <p id="resultado" class="mt-4"></p>
+    </div>
+  </div>
+</body>
+</html>
