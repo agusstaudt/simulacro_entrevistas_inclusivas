@@ -1,0 +1,5 @@
+.clasp.json
+.env
+*.secret
+ids/*.json
+appsscript.json
